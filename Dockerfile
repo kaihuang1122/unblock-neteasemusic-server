@@ -1,7 +1,7 @@
 FROM node:lts-alpine
 
 RUN set -ex && mkdir /app
-RUN apk add --no-cache python3 youtube-dl \
+RUN apk add --no-cache python3 youtube-dl ffmpeg wget \
     && wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -O /usr/local/bin/yt-dlp \
     && chmod a+rx /usr/local/bin/yt-dlp \
     && printf '--cache-dir /var/cache/yt-dlp\n--js-runtimes node:/usr/local/bin/node\n' | tee /etc/yt-dlp.conf
@@ -19,3 +19,4 @@ WORKDIR /app
 EXPOSE 8080 8081
 
 ENTRYPOINT ["node", "app.js"]
+CMD ["-p", "8080:8081", "-o", "ytdlp", "bilibili"]

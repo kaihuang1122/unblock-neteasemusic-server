@@ -89,3 +89,8 @@ daemon/
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# Edited
+
+scratch/
+data/

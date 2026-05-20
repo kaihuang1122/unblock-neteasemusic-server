@@ -7,6 +7,7 @@ module.exports = {
 	entry: {
 		app: './src/app.js',
 		bridge: './src/bridge.js',
+		downloader: './src/downloader.js',
 	},
 	output: {
 		filename: '[name].js',

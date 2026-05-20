@@ -1,7 +1,10 @@
 const parse = require('url').parse;
+const { fork } = require('child_process');
+const path = require('path');
 const crypto = require('./crypto');
 const request = require('./request');
 const match = require('./provider/match');
+const find = require('./provider/find');
 const querystring = require('querystring');
 const { isHost, cookieToMap, mapToCookie } = require('./utilities');
 const { getManagedCacheStorage } = require('./cache');
@@ -690,6 +693,7 @@ const tryMatch = (ctx) => {
 	/** @type {Promise<any>[]} */
 	let tasks;
 	let target = 0;
+	const matchedUrls = new Map();
 
 	const inject = (item) => {
 		item.flag = 0;
@@ -699,6 +703,7 @@ const tryMatch = (ctx) => {
 		) {
 			return match(item.id)
 				.then((song) => {
+					matchedUrls.set(item.id, song.url);
 					let os = '';
 					try {
 						let { header } = netease.param;
@@ -815,7 +820,29 @@ const tryMatch = (ctx) => {
 				); // reduce time cost
 		tasks = jsonBody.data.map((item) => inject(item));
 	}
-	return Promise.all(tasks).catch((e) => e && logger.error(e));
+	return Promise.all(tasks)
+		.then(() => {
+			try {
+				const items = Array.isArray(jsonBody.data) ? jsonBody.data : [jsonBody.data];
+				items.forEach((item) => {
+					if (item && item.id && item.code === 200) {
+						const finalUrl = matchedUrls.get(item.id) || item.url;
+						if (finalUrl) {
+							logger.info(`Forking background downloader for song [${item.id}]`);
+							const downloaderPath = path.join(__dirname, 'downloader.js');
+							const child = fork(downloaderPath, [item.id.toString(), '', finalUrl], {
+								detached: true,
+								stdio: 'ignore',
+							});
+							child.unref();
+						}
+					}
+				});
+			} catch (e) {
+				logger.error(e, 'Failed to trigger background downloader');
+			}
+		})
+		.catch((e) => e && logger.error(e));
 };
 
 const unblockSoundEffects = (obj) => {
