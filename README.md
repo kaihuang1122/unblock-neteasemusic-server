@@ -25,38 +25,81 @@
    - 調用本機 `ffmpeg` 將「專輯封面圖片」與清洗後的「純淨版文字歌詞」封裝寫入至 `.m4a` 或 `.mp3` 音檔的 Metadata 中。
    - 設有 Robust Fallback：若環境中 `ffmpeg` 異常，將自動降級複製原始音檔，並仍能產出獨立 `.lrc` 檔案。
 
+6. **安全性憑證動態生成 (Dynamic Certificate Generation)**
+   - 專案已移除所有內置的靜態憑證檔案，改為在容器初次啟動時，由內置的 `openssl` 自動生成專屬且隨機的自簽署 Root CA 與 `*.music.163.com` 憑證配對，杜絕預設金鑰洩漏風險。
+
 ---
 
 ## 啟動方法 (Startup Methods)
 
 本專案強烈建議使用 **Docker** 進行部署。
 
-### 1. 構建 Docker 映像檔
+### 方式 A：使用 Docker Compose (推薦)
 
-在專案根目錄下，執行以下指令以構建包含 `ffmpeg` 與 `yt-dlp` 的 Docker 映像檔：
+1. 確保專案目錄下有 `docker-compose.yml` 檔案。
+2. 執行以下命令啟動服務：
+   ```bash
+   docker-compose up -d --build
+   ```
+3. 啟動後，專案目錄下會自動建立兩個目錄：
+   - `./cert`：存放動態生成的憑證（包含 `ca.crt`、`server.crt`、`server.key` 等）。
+   - `./data`：存放下載的音訊檔案、`.lrc` 歌詞以及 `download.log` 日誌檔案。
 
-```bash
-docker build -t unblock-neteasemusic-collector .
-```
+---
 
-### 2. 運行容器 (推薦方式)
+### 方式 B：使用 Docker CLI 命令
 
-為確保下載的音樂、歌詞與日誌能夠持久化儲存到您的本機，啟動時**必須掛載 `/data` 目錄**，並對應雙連接埠 `8080:8081`（以保證 HTTPS 握手與解鎖正常運作）：
+1. **構建 Docker 映像檔**：
+   ```bash
+   docker build -t unblock-neteasemusic-collector .
+   ```
 
-```bash
-docker run -d \
-  --name new-unblock-server \
-  -p 8080:8080 \
-  -p 8081:8081 \
-  -v "C:\您的本機儲存路徑\音樂檔案:/data" \
-  unblock-neteasemusic-collector
-```
+2. **運行容器**（必須掛載 `/data` 與 `/app/cert` 目錄）：
+   ```bash
+   docker run -d \
+     --name new-unblock-server \
+     -p 8080:8080 \
+     -p 8081:8081 \
+     -v "C:\您的本機儲存路徑\音樂檔案:/data" \
+     -v "C:\您的本機儲存路徑\憑證檔案:/app/cert" \
+     unblock-neteasemusic-collector
+   ```
 
-* **掛載路徑**：您本機掛載的目錄中將會產出：
-  - `<歌手> - <歌名>.m4a` / `.mp3` (內嵌封面與純歌詞的音檔)
-  - `<歌手> - <歌名>.lrc` (滾動時間軸歌詞)
-  - `download.log` (下載器執行日誌)
+---
 
-### 3. 常見客戶端代理設定
+## 安全性升級與憑證信任指南 (Certificate Trust Guide)
 
-啟動代理伺服器後，您可以在客戶端（如 Windows 官方客戶端、Android 官方客戶端等）將 **HTTP 代理** 設定為本機或伺服器的 `IP:8080`，即可完美享受無阻礙聽歌與全自動背景音樂收集。
+為了讓您的客戶端能夠成功解鎖並通過 HTTPS 代理，您需要在運行代理的設備上信任生成的 Root CA 憑證。
+
+當服務首次啟動後，請至您掛載的憑證目錄（如本機的 `./cert` 資料夾）中找到 **`ca.crt`**（或 `server.crt`），並依您的作業系統進行以下設定：
+
+### Windows 用戶
+1. 在本地掛載的 `cert` 目錄中，連按兩下 **`ca.crt`**。
+2. 點擊 **「安裝憑證...」** (Install Certificate...)。
+3. 選擇 **「本機電腦」** (Local Machine)，然後點擊下一步。
+4. 選擇 **「將所有憑證放入以下的存放區」** (Place all certificates in the following store)。
+5. 點擊「瀏覽」，選擇 **「受信任的根憑證授權單位」** (Trusted Root Certification Authorities)，然後點擊確定。
+6. 點擊下一步，最後點擊完成。
+
+### macOS 用戶
+1. 開啟 **「鑰匙圈存取」** (Keychain Access)。
+2. 將 **`ca.crt`** 拖放到「系統」或「登入」鑰匙圈中。
+3. 連按兩下剛剛導入的憑證，展開 **「信任」** (Trust) 選項。
+4. 將 **「使用此憑證時」** (When using this certificate) 設定為 **「永遠信任」** (Always Trust)。
+
+### iOS 用戶
+1. 將 **`ca.crt`** 傳送到 iOS 設備（可透過 AirDrop、郵件附件，或在 Safari 下載）。
+2. 至「設定」->「已下載描述檔」安裝該憑證描述檔。
+3. 至「設定」->「一般」->「關於本機」->「憑證信任設定」。
+4. 找到剛剛安裝的 "UnblockNeteaseMusic Root CA"，並**開啟完全信任切換開關**。
+
+### Android 用戶
+1. 將 **`ca.crt`** 複製到 Android 設備儲存空間中。
+2. 至「設定」->「安全性與隱私」->「更多安全性設定」->「加密與憑證」->「安裝憑證」->「CA 憑證」（路徑依各家 UI 可能有些微差異）。
+3. 選擇 `ca.crt` 並確認安裝。
+
+---
+
+## 常見客戶端代理設定
+
+啟動代理伺服器並完成憑證信任後，您可以在客戶端（如 Windows 官方客戶端、Android 官方客戶端等）將 **HTTP 代理** 設定為本機或伺服器的 `IP:8080`，即可完美享受無阻礙聽歌與全自動背景音樂收集。
