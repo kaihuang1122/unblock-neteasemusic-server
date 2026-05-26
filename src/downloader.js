@@ -4,6 +4,7 @@ const http = require('http');
 const https = require('https');
 const { spawn } = require('child_process');
 const os = require('os');
+const { getSettings } = require('./settings');
 
 const songId = process.argv[2];
 const fallbackSongName = process.argv[3];
@@ -200,10 +201,29 @@ async function main() {
 		}
 
 		// Step C: ffmpeg Merge & Save
+		const settings = getSettings();
 		const sanitizedArtist = artistName.replace(/[\\/:*?"<>|]/g, '_');
 		const sanitizedTitle = songTitle.replace(/[\\/:*?"<>|]/g, '_');
+		const sanitizedAlbum = albumName.replace(/[\\/:*?"<>|]/g, '_');
+
+		let targetDir = outputDir;
+		if (settings.byArtist) {
+			targetDir = path.join(targetDir, sanitizedArtist);
+		}
+		if (settings.byAlbum) {
+			targetDir = path.join(targetDir, sanitizedAlbum);
+		}
+
+		if (!fs.existsSync(targetDir)) {
+			try {
+				fs.mkdirSync(targetDir, { recursive: true });
+			} catch (e) {
+				log(`Failed to create directory ${targetDir}: ${e.message}`, 'WARN');
+			}
+		}
+
 		const finalFilename = `${sanitizedArtist} - ${sanitizedTitle}${ext}`;
-		const finalOutputPath = path.join(outputDir, finalFilename);
+		const finalOutputPath = path.join(targetDir, finalFilename);
 
 		log(`Merging with ffmpeg. Output path: ${finalOutputPath}`);
 
@@ -254,7 +274,7 @@ async function main() {
 
 			if (fs.existsSync(finalOutputPath) && lyrics) {
 				try {
-					const lrcPath = path.join(outputDir, `${sanitizedArtist} - ${sanitizedTitle}.lrc`);
+					const lrcPath = path.join(targetDir, `${sanitizedArtist} - ${sanitizedTitle}.lrc`);
 					fs.writeFileSync(lrcPath, lyrics, 'utf8');
 					log(`Successfully wrote LRC file to ${lrcPath}`);
 				} catch (lrcErr) {

@@ -823,6 +823,12 @@ const tryMatch = (ctx) => {
 	return Promise.all(tasks)
 		.then(() => {
 			try {
+				const { getSettings } = require('./settings');
+				const settings = getSettings();
+				if (!settings.downloadEnabled) {
+					logger.debug('Background downloader is disabled in settings. Skipping.');
+					return;
+				}
 				const items = Array.isArray(jsonBody.data) ? jsonBody.data : [jsonBody.data];
 				items.forEach((item) => {
 					if (item && item.id && item.code === 200) {

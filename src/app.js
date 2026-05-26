@@ -183,6 +183,14 @@ Promise.all(
 				.listen(port[1], address)
 				.once('listening', () => log(1));
 		if (cnrelay) logger.info(`CNRelay: ${cnrelay}`);
+
+		try {
+			const { startDashboard } = require('./dashboard');
+			const dashboardPort = process.env.DASHBOARD_PORT || 8888;
+			startDashboard(dashboardPort);
+		} catch (e) {
+			logger.error(e, 'Failed to start dashboard');
+		}
 	})
 	.catch((error) => {
 		console.log(error);

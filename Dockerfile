@@ -16,7 +16,7 @@ ENV NODE_ENV production
 
 WORKDIR /app
 
-EXPOSE 8080 8081
+EXPOSE 8080 8081 8888
 
 ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["node", "app.js", "-p", "8080:8081", "-o", "ytdlp", "bilibili"]
