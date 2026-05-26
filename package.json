@@ -1,6 +1,6 @@
 {
 	"name": "@unblockneteasemusic/server",
-	"version": "0.28.0",
+	"version": "0.28.0.f1",
 	"description": "Revive unavailable songs for Netease Cloud Music",
 	"main": "src/provider/match.js",
 	"bin": {
@@ -17,10 +17,7 @@
 		"test": "jest"
 	},
 	"pkg": {
-		"assets": [
-			"server.key",
-			"server.crt"
-		],
+		"assets": [],
 		"targets": [
 			"node18-linux-arm64",
 			"node18-win-arm64",

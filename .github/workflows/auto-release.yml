@@ -1,0 +1,58 @@
+name: Auto Create GitHub Release
+
+on:
+    push:
+        tags:
+            - 'v*'
+
+jobs:
+    release:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v6
+
+            - name: Use Node.js 20
+              uses: actions/setup-node@v6
+              with:
+                  node-version: 20
+                  cache: yarn
+
+            - name: Install dependencies
+              run: yarn
+
+            - name: Make bundle
+              run: yarn build
+
+            - name: Build executables
+              run: yarn pkg
+
+            - name: Rename binaries
+              run: |
+                  mv dist/server-linux-arm64 dist/unblockneteasemusic-linux-arm64
+                  mv dist/server-linux-x64 dist/unblockneteasemusic-linux-x64
+                  mv dist/server-win-arm64.exe dist/unblockneteasemusic-win-arm64.exe
+                  mv dist/server-win-x64.exe dist/unblockneteasemusic-win-x64.exe
+
+            - name: Create Release and Upload Assets
+              uses: softprops/action-gh-release@v2
+              with:
+                  files: |
+                      dist/unblockneteasemusic-*
+                  name: Release ${{ github.ref_name }}
+                  body: |
+                      ## UnblockNeteaseMusic (Collector Edition) - ${{ github.ref_name }}
+                      
+                      自動生成的 Release 版本。
+                      
+                      ### 變更日誌
+                      - **安全性升級**：動態隨機生成憑證金鑰對，移除程式碼庫中的靜態憑證。
+                      - **控制台管理面板**：於 8888 埠提供精美深色控制台，可用於即時開關下載功能，設定依歌手、依專輯分類儲存。
+                      - **日誌追蹤**：控制台提供即時下載日誌流，方便追蹤音樂打包狀態。
+                  draft: false
+                  prerelease: false
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
