@@ -252,6 +252,13 @@ async function main() {
 			}
 		}
 
+		if (ext === '.mp3') {
+			ffmpegArgs.push('-id3v2_version', '3');
+			if (hasCover) {
+				ffmpegArgs.push('-metadata:s:v', 'title=Album cover', '-metadata:s:v', 'comment=Cover (front)');
+			}
+		}
+
 		ffmpegArgs.push(finalOutputPath);
 
 		const ffmpegProc = spawn('ffmpeg', ffmpegArgs);
