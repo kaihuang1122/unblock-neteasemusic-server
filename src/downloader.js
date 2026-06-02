@@ -424,9 +424,15 @@ async function main() {
 	if (settings.downloadLyrics !== false) {
 		try {
 			const lyricRes = await fetchJson(`https://music.163.com/api/song/lyric?id=${songId}&lv=1&kv=1&tv=-1`);
-			if (lyricRes && lyricRes.lrc && lyricRes.lrc.lyric) {
-				originalLrc = lyricRes.lrc.lyric;
+			if (lyricRes) {
+				originalLrc = lyricRes.lrc && lyricRes.lrc.lyric ? lyricRes.lrc.lyric : '';
 				translatedLrc = lyricRes.tlyric && lyricRes.tlyric.lyric ? lyricRes.tlyric.lyric : '';
+				
+				// Fallback: If original lyric is empty but translated lyric is available, treat translated as main lyric
+				if (!originalLrc && translatedLrc) {
+					originalLrc = translatedLrc;
+					translatedLrc = '';
+				}
 			}
 		} catch (err) {
 			log(`Failed to fetch lyrics: ${err.message}`, 'WARN');
