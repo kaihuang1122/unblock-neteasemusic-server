@@ -37,6 +37,9 @@ jobs:
         steps:
             - uses: actions/checkout@v6
 
+            - name: Enable Corepack
+              run: corepack enable
+
             - name: Use Node.js 20
               uses: actions/setup-node@v6
               with:
@@ -51,16 +54,15 @@ jobs:
                   platforms: all
 
             - name: Install dependencies
-              run: yarn
+              run: yarn install
 
             - name: Make bundle
               run: yarn build
 
             - name: Building executable file for ${{ matrix.target }}
               run: |
-                  npx pkg --compress Brotli -t node18-${{ matrix.target }} .
-                  mv "$(ls dist/*)" "$(ls dist/* | sed 's/server/unblockneteasemusic-${{ matrix.target }}/g')"
-                  echo "ASSET_NAME=$(ls dist)" >> $GITHUB_ENV
+                  npx pkg --compress Brotli -t node18-${{ matrix.target }} -o dist/unblockneteasemusic-${{ matrix.target }} .
+                  echo "ASSET_NAME=unblockneteasemusic-${{ matrix.target }}" >> $GITHUB_ENV
 
             - name: Publishing to GitHub Artifacts
               uses: actions/upload-artifact@v6

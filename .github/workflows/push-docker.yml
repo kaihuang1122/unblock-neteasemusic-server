@@ -8,8 +8,6 @@ on:
             - '.github/workflows/push-docker.yml'
             - 'precompiled/**'
             - 'Dockerfile'
-            - 'server.crt'
-            - 'server.key'
 
     release:
         types:
@@ -23,6 +21,7 @@ env:
     image: pan93412/unblock-netease-music-enhanced
     develop_tag: latest
     released_tag: release
+    HAS_DOCKERHUB_SECRETS: ${{ secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != '' }}
 
 jobs:
     build-and-publish:
@@ -44,6 +43,7 @@ jobs:
 
             - name: Login to DockerHub
               uses: docker/login-action@v3
+              if: env.HAS_DOCKERHUB_SECRETS == 'true'
               with:
                   username: ${{ secrets.DOCKERHUB_USERNAME }}
                   password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -54,7 +54,7 @@ jobs:
               with:
                   context: .
                   platforms: ${{ env.platforms }}
-                  push: true
+                  push: ${{ env.HAS_DOCKERHUB_SECRETS == 'true' }}
                   tags: ${{ env.image }}:${{ env.develop_tag }}
                   cache-from: type=gha
                   cache-to: type=gha,mode=max
@@ -65,7 +65,7 @@ jobs:
               with:
                   context: .
                   platforms: ${{ env.platforms }}
-                  push: true
+                  push: ${{ env.HAS_DOCKERHUB_SECRETS == 'true' }}
                   tags: >-
                       ${{ env.image }}:${{ env.develop_tag }},
                       ${{ env.image }}:${{ env.released_tag }},

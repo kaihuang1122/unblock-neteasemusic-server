@@ -15,6 +15,9 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v6
 
+            - name: Enable Corepack
+              run: corepack enable
+
             - name: Use Node.js 20
               uses: actions/setup-node@v6
               with:
@@ -22,7 +25,7 @@ jobs:
                   cache: yarn
 
             - name: Install dependencies
-              run: yarn
+              run: yarn install
 
             - name: Make bundle
               run: yarn build

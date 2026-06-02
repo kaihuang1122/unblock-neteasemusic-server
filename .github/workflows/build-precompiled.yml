@@ -27,6 +27,9 @@ jobs:
             - name: Cleanup precompiled
               run: rm -rf precompiled/*
 
+            - name: Enable Corepack
+              run: corepack enable
+
             - name: Use Node.js 20
               uses: actions/setup-node@v6
               with:
@@ -34,7 +37,7 @@ jobs:
                   cache: yarn
 
             - name: Install dependencies
-              run: yarn
+              run: yarn install
 
             - name: Build the precompiled package
               run: yarn build
