@@ -303,6 +303,23 @@ const htmlPage = `<!DOCTYPE html>
             opacity: 1;
         }
 
+        .nested-controls {
+            margin-left: 20px;
+            padding-left: 16px;
+            border-left: 1px dashed rgba(255, 255, 255, 0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .control-item.disabled {
+            opacity: 0.35;
+            pointer-events: none;
+            filter: grayscale(0.5);
+        }
+
         /* Scrollbar styling */
         ::-webkit-scrollbar {
             width: 6px;
@@ -363,6 +380,122 @@ const htmlPage = `<!DOCTYPE html>
                         <span class="slider"></span>
                     </label>
                 </div>
+
+                <div class="control-item">
+                    <div class="control-info">
+                        <span class="control-label">下載歌詞</span>
+                        <span class="control-desc">開啟或關閉歌詞下載功能</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="downloadLyrics">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="nested-controls">
+                    <div class="control-item">
+                        <div class="control-info">
+                            <span class="control-label">下載嵌入式歌詞</span>
+                            <span class="control-desc">將歌詞直接寫入音樂檔案的詮釋資料中</span>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="downloadEmbedLyrics">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="nested-controls">
+                        <div class="control-item">
+                            <div class="control-info">
+                                <span class="control-label">嵌入式歌詞加入翻譯歌詞</span>
+                                <span class="control-desc">嵌入的歌詞包含翻譯行（採換行排列）</span>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="embedLyricAddTranslation">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="control-item">
+                            <div class="control-info">
+                                <span class="control-label">嵌入式歌詞使用動態歌詞</span>
+                                <span class="control-desc">嵌入的歌詞包含時間戳記</span>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="embedLyricDynamic">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="control-item">
+                        <div class="control-info">
+                            <span class="control-label">下載 .lrc 歌詞檔案</span>
+                            <span class="control-desc">在音樂檔案旁下載同名的 .lrc 歌詞檔</span>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="downloadLrcFile">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="nested-controls">
+                        <div class="control-item">
+                            <div class="control-info">
+                                <span class="control-label">.lrc 歌詞加入翻譯歌詞</span>
+                                <span class="control-desc">.lrc 歌詞檔中包含翻譯行（採換行排列）</span>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="lrcFileAddTranslation">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="control-item">
+                            <div class="control-info">
+                                <span class="control-label">.lrc 歌詞使用動態歌詞</span>
+                                <span class="control-desc">.lrc 歌詞檔中包含時間戳記</span>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="lrcFileDynamic">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="control-item">
+                        <div class="control-info">
+                            <span class="control-label">加入翻譯歌詞 (總開關)</span>
+                            <span class="control-desc">開啟或關閉所有雙語翻譯歌詞合併</span>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="addTranslation">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="control-item">
+                        <div class="control-info">
+                            <span class="control-label">使用動態歌詞 (總開關)</span>
+                            <span class="control-desc">開啟或關閉所有動態時間戳記</span>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="useDynamicLyrics">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="control-item">
+                        <div class="control-info">
+                            <span class="control-label">同時下載動靜態歌詞 (.mp3 檔案)</span>
+                            <span class="control-desc" style="color: #ff7b72; font-weight: 500;">⚠️ 警告：此項基於 USLT/SYLT 雙重寫入，SYLT 的播放器相容性極差。關閉時動態戳直接加入 USLT 具有更高相容性。</span>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="mp3BothStaticDynamic">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -385,10 +518,53 @@ const htmlPage = `<!DOCTYPE html>
             downloadEnabled: document.getElementById('downloadEnabled'),
             byArtist: document.getElementById('byArtist'),
             byAlbum: document.getElementById('byAlbum'),
+            downloadLyrics: document.getElementById('downloadLyrics'),
+            downloadEmbedLyrics: document.getElementById('downloadEmbedLyrics'),
+            downloadLrcFile: document.getElementById('downloadLrcFile'),
+            addTranslation: document.getElementById('addTranslation'),
+            embedLyricAddTranslation: document.getElementById('embedLyricAddTranslation'),
+            lrcFileAddTranslation: document.getElementById('lrcFileAddTranslation'),
+            useDynamicLyrics: document.getElementById('useDynamicLyrics'),
+            embedLyricDynamic: document.getElementById('embedLyricDynamic'),
+            lrcFileDynamic: document.getElementById('lrcFileDynamic'),
+            mp3BothStaticDynamic: document.getElementById('mp3BothStaticDynamic'),
             logConsole: document.getElementById('logConsole'),
             toast: document.getElementById('toast'),
             toastMsg: document.getElementById('toastMsg')
         };
+
+        function updateUIState() {
+            const lyricOn = elements.downloadLyrics.checked;
+            const embedOn = elements.downloadEmbedLyrics.checked;
+            const lrcOn = elements.downloadLrcFile.checked;
+            const transOn = elements.addTranslation.checked;
+            const dynOn = elements.useDynamicLyrics.checked;
+
+            toggleState(elements.downloadEmbedLyrics, !lyricOn);
+            toggleState(elements.downloadLrcFile, !lyricOn);
+            toggleState(elements.addTranslation, !lyricOn);
+            toggleState(elements.useDynamicLyrics, !lyricOn);
+
+            toggleState(elements.embedLyricAddTranslation, !lyricOn || !embedOn || !transOn);
+            toggleState(elements.embedLyricDynamic, !lyricOn || !embedOn || !dynOn);
+
+            toggleState(elements.lrcFileAddTranslation, !lyricOn || !lrcOn || !transOn);
+            toggleState(elements.lrcFileDynamic, !lyricOn || !lrcOn || !dynOn);
+            
+            toggleState(elements.mp3BothStaticDynamic, !lyricOn || !embedOn || !dynOn);
+        }
+
+        function toggleState(el, isDisabled) {
+            el.disabled = isDisabled;
+            const container = el.closest('.control-item');
+            if (container) {
+                if (isDisabled) {
+                    container.classList.add('disabled');
+                } else {
+                    container.classList.remove('disabled');
+                }
+            }
+        }
 
         // Fetch settings
         async function fetchSettings() {
@@ -399,6 +575,17 @@ const htmlPage = `<!DOCTYPE html>
                     elements.downloadEnabled.checked = data.downloadEnabled;
                     elements.byArtist.checked = data.byArtist;
                     elements.byAlbum.checked = data.byAlbum;
+                    elements.downloadLyrics.checked = data.downloadLyrics !== false;
+                    elements.downloadEmbedLyrics.checked = data.downloadEmbedLyrics !== false;
+                    elements.downloadLrcFile.checked = data.downloadLrcFile !== false;
+                    elements.addTranslation.checked = data.addTranslation !== false;
+                    elements.embedLyricAddTranslation.checked = data.embedLyricAddTranslation !== false;
+                    elements.lrcFileAddTranslation.checked = data.lrcFileAddTranslation !== false;
+                    elements.useDynamicLyrics.checked = data.useDynamicLyrics !== false;
+                    elements.embedLyricDynamic.checked = data.embedLyricDynamic !== false;
+                    elements.lrcFileDynamic.checked = data.lrcFileDynamic !== false;
+                    elements.mp3BothStaticDynamic.checked = !!data.mp3BothStaticDynamic;
+                    updateUIState();
                 }
             } catch (err) {
                 showToast('讀取設定失敗', true);
@@ -410,7 +597,17 @@ const htmlPage = `<!DOCTYPE html>
             const data = {
                 downloadEnabled: elements.downloadEnabled.checked,
                 byArtist: elements.byArtist.checked,
-                byAlbum: elements.byAlbum.checked
+                byAlbum: elements.byAlbum.checked,
+                downloadLyrics: elements.downloadLyrics.checked,
+                downloadEmbedLyrics: elements.downloadEmbedLyrics.checked,
+                downloadLrcFile: elements.downloadLrcFile.checked,
+                addTranslation: elements.addTranslation.checked,
+                embedLyricAddTranslation: elements.embedLyricAddTranslation.checked,
+                lrcFileAddTranslation: elements.lrcFileAddTranslation.checked,
+                useDynamicLyrics: elements.useDynamicLyrics.checked,
+                embedLyricDynamic: elements.embedLyricDynamic.checked,
+                lrcFileDynamic: elements.lrcFileDynamic.checked,
+                mp3BothStaticDynamic: elements.mp3BothStaticDynamic.checked
             };
             try {
                 const res = await fetch('/api/settings', {
@@ -480,6 +677,19 @@ const htmlPage = `<!DOCTYPE html>
         elements.downloadEnabled.addEventListener('change', saveSettings);
         elements.byArtist.addEventListener('change', saveSettings);
         elements.byAlbum.addEventListener('change', saveSettings);
+
+        const lyricInputs = [
+            'downloadLyrics', 'downloadEmbedLyrics', 'downloadLrcFile',
+            'addTranslation', 'embedLyricAddTranslation', 'lrcFileAddTranslation',
+            'useDynamicLyrics', 'embedLyricDynamic', 'lrcFileDynamic', 'mp3BothStaticDynamic'
+        ];
+        
+        lyricInputs.forEach(id => {
+            elements[id].addEventListener('change', () => {
+                updateUIState();
+                saveSettings();
+            });
+        });
 
         // Initial calls
         fetchSettings().then(() => {
