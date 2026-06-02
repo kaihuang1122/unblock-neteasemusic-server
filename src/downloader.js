@@ -102,6 +102,240 @@ function fetchJson(url) {
 	});
 }
 
+function generateLyricText(original, translated, dynamic, addTranslation) {
+	if (!original) return '';
+
+	const timeRegex = /\[\d+:\d+(?:\.\d+)?\]/g;
+	const originalLines = original.split('\n');
+
+	if (!dynamic) {
+		// Static lyrics: remove timestamps
+		const cleanOriginalLines = originalLines.map(line => line.replace(timeRegex, '').trim()).filter(line => line);
+		if (!translated || !addTranslation) {
+			return cleanOriginalLines.join('\n');
+		}
+
+		const translatedLines = translated.split('\n');
+		const translationMap = new Map();
+		for (const line of translatedLines) {
+			const matches = line.match(timeRegex);
+			if (!matches) continue;
+			const text = line.replace(timeRegex, '').trim();
+			if (!text) continue;
+			for (const time of matches) {
+				translationMap.set(time, text);
+			}
+		}
+
+		const merged = [];
+		for (const line of originalLines) {
+			const matches = line.match(timeRegex);
+			const cleanOriginal = line.replace(timeRegex, '').trim();
+			if (!cleanOriginal) continue;
+			merged.push(cleanOriginal);
+
+			if (matches) {
+				let translation = '';
+				for (const time of matches) {
+					if (translationMap.has(time)) {
+						translation = translationMap.get(time);
+						break;
+					}
+				}
+				if (translation) {
+					merged.push(translation);
+				}
+			}
+		}
+		return merged.join('\n');
+	} else {
+		// Dynamic lyrics: keep timestamps
+		if (!translated || !addTranslation) {
+			return original;
+		}
+
+		const translatedLines = translated.split('\n');
+		const translationMap = new Map();
+		for (const line of translatedLines) {
+			const matches = line.match(timeRegex);
+			if (!matches) continue;
+			const text = line.replace(timeRegex, '').trim();
+			if (!text) continue;
+			for (const time of matches) {
+				translationMap.set(time, text);
+			}
+		}
+
+		const merged = [];
+		for (const line of originalLines) {
+			const matches = line.match(timeRegex);
+			if (!matches) {
+				merged.push(line);
+				continue;
+			}
+
+			const originalText = line.replace(timeRegex, '').trim();
+			let translation = '';
+			for (const time of matches) {
+				if (translationMap.has(time)) {
+					translation = translationMap.get(time);
+					break;
+				}
+			}
+
+			merged.push(line);
+			if (translation && originalText) {
+				merged.push(translation);
+			}
+		}
+		return merged.join('\n');
+	}
+}
+
+function parseSyltLyrics(original, translated, addTranslation) {
+	if (!original) return [];
+	const originalLines = original.split('\n');
+	const timeRegex = /\[\d+:\d+(?:\.\d+)?\]/;
+	const timeRegexExec = /\[(\d+):(\d+)(?:\.(\d+))?\]/g;
+
+	const translationMap = new Map();
+	if (translated && addTranslation) {
+		const translatedLines = translated.split('\n');
+		for (const line of translatedLines) {
+			timeRegexExec.lastIndex = 0;
+			const matches = line.match(/\[\d+:\d+(?:\.\d+)?\]/g);
+			if (!matches) continue;
+			const text = line.replace(/\[\d+:\d+(?:\.\d+)?\]/g, '').trim();
+			if (!text) continue;
+			for (const time of matches) {
+				translationMap.set(time, text);
+			}
+		}
+	}
+
+	const syncLyrics = [];
+	for (const line of originalLines) {
+		timeRegexExec.lastIndex = 0;
+		const matches = [];
+		let match;
+		while ((match = timeRegexExec.exec(line)) !== null) {
+			const min = parseInt(match[1], 10);
+			const sec = parseInt(match[2], 10);
+			const msPart = match[3] ? match[3].padEnd(3, '0').slice(0, 3) : '000';
+			const ms = parseInt(msPart, 10);
+			const totalMs = (min * 60 + sec) * 1000 + ms;
+			// Extract the raw time string matching this specific match
+			const rawTime = match[0];
+			matches.push({ time: totalMs, rawTime });
+		}
+
+		if (matches.length === 0) continue;
+
+		const originalText = line.replace(/\[\d+:\d+(?:\.\d+)?\]/g, '').trim();
+		if (!originalText) continue;
+
+		let translation = '';
+		for (const m of matches) {
+			if (translationMap.has(m.rawTime)) {
+				translation = translationMap.get(m.rawTime);
+				break;
+			}
+		}
+
+		for (const m of matches) {
+			syncLyrics.push({ time: m.time, text: originalText });
+			if (translation) {
+				syncLyrics.push({ time: m.time, text: translation });
+			}
+		}
+	}
+
+	syncLyrics.sort((a, b) => a.time - b.time);
+	return syncLyrics;
+}
+
+function writeSyltToMp3(filePath, syncLyrics) {
+	if (!syncLyrics || syncLyrics.length === 0) return;
+	try {
+		const data = fs.readFileSync(filePath);
+		if (data.slice(0, 3).toString() !== 'ID3') {
+			console.log('Not a valid ID3v2 tag, skipping SYLT injection');
+			return;
+		}
+
+		const tagSize = ((data[6] & 0x7F) << 21) |
+		                ((data[7] & 0x7F) << 14) |
+		                ((data[8] & 0x7F) << 7) |
+		                (data[9] & 0x7F);
+
+		let offset = 10;
+		let insertOffset = 10;
+		while (offset < 10 + tagSize) {
+			if (data[offset] === 0) {
+				insertOffset = offset;
+				break;
+			}
+			const frameId = data.slice(offset, offset + 4).toString('ascii');
+			if (!/^[A-Z0-9]{4}$/.test(frameId)) {
+				insertOffset = offset;
+				break;
+			}
+			const frameSize = data.readUInt32BE(offset + 4);
+			offset += 10 + frameSize;
+		}
+		if (offset >= 10 + tagSize) {
+			insertOffset = 10 + tagSize;
+		}
+
+		const bodyChunks = [];
+		// Encoding: UTF-8 (0x03)
+		bodyChunks.push(Buffer.from([0x03]));
+		// Language: eng (3 bytes)
+		bodyChunks.push(Buffer.from('eng', 'ascii'));
+		// Timestamp format: milliseconds (0x02)
+		bodyChunks.push(Buffer.from([0x02]));
+		// Content type: lyrics (0x01)
+		bodyChunks.push(Buffer.from([0x01]));
+		// Content descriptor: null-terminated empty string (0x00)
+		bodyChunks.push(Buffer.from([0x00]));
+
+		for (const item of syncLyrics) {
+			bodyChunks.push(Buffer.from(item.text, 'utf8'));
+			bodyChunks.push(Buffer.from([0x00]));
+			const timeBuf = Buffer.alloc(4);
+			timeBuf.writeUInt32BE(item.time);
+			bodyChunks.push(timeBuf);
+		}
+
+		const bodyBuf = Buffer.concat(bodyChunks);
+
+		const frameHeader = Buffer.alloc(10);
+		frameHeader.write('SYLT', 0, 4, 'ascii');
+		frameHeader.writeUInt32BE(bodyBuf.length, 4);
+
+		const newFrameBytes = Buffer.concat([frameHeader, bodyBuf]);
+
+		const newTagSize = tagSize + newFrameBytes.length;
+		const headerCopy = Buffer.from(data.slice(0, 10));
+		headerCopy[6] = (newTagSize >> 21) & 0x7F;
+		headerCopy[7] = (newTagSize >> 14) & 0x7F;
+		headerCopy[8] = (newTagSize >> 7) & 0x7F;
+		headerCopy[9] = newTagSize & 0x7F;
+
+		const finalBuf = Buffer.concat([
+			headerCopy,
+			data.slice(10, insertOffset),
+			newFrameBytes,
+			data.slice(insertOffset)
+		]);
+
+		fs.writeFileSync(filePath, finalBuf);
+		console.log(`Successfully injected SYLT frame of size ${newFrameBytes.length} bytes`);
+	} catch (e) {
+		console.error('Failed to write SYLT to MP3:', e);
+	}
+}
+
 async function main() {
 	if (!songId || !audioUrl) {
 		log('Missing songId or audioUrl', 'ERROR');
@@ -121,6 +355,7 @@ async function main() {
 		}
 	}
 
+	const settings = getSettings();
 	log(`Starting background download. Audio URL: ${audioUrl}`);
 
 	let songTitle = fallbackSongName || '';
@@ -148,15 +383,20 @@ async function main() {
 		log(`Failed to fetch song details: ${err.message}. Using defaults.`, 'WARN');
 	}
 
+	let originalLrc = '';
+	let translatedLrc = '';
+
 	// Try to fetch lyrics
-	try {
-		const lyricRes = await fetchJson(`https://music.163.com/api/song/lyric?id=${songId}&lv=1&kv=1&tv=-1`);
-		if (lyricRes && lyricRes.lrc && lyricRes.lrc.lyric) {
-			lyrics = lyricRes.lrc.lyric;
-			cleanLyrics = lyrics.replace(/\[\d+:\d+(?:\.\d+)?\]/g, '').trim();
+	if (settings.downloadLyrics !== false) {
+		try {
+			const lyricRes = await fetchJson(`https://music.163.com/api/song/lyric?id=${songId}&lv=1&kv=1&tv=-1`);
+			if (lyricRes && lyricRes.lrc && lyricRes.lrc.lyric) {
+				originalLrc = lyricRes.lrc.lyric;
+				translatedLrc = lyricRes.tlyric && lyricRes.tlyric.lyric ? lyricRes.tlyric.lyric : '';
+			}
+		} catch (err) {
+			log(`Failed to fetch lyrics: ${err.message}`, 'WARN');
 		}
-	} catch (err) {
-		log(`Failed to fetch lyrics: ${err.message}`, 'WARN');
 	}
 
 	// Step B: Download assets
@@ -178,6 +418,28 @@ async function main() {
 		}
 		
 		const actualTempAudioPath = tempAudioPath + ext;
+
+		// Generate lyric texts based on settings and file extension
+		if (originalLrc) {
+			if (settings.downloadLrcFile !== false) {
+				lyrics = generateLyricText(
+					originalLrc,
+					translatedLrc,
+					settings.lrcFileDynamic !== false,
+					settings.lrcFileAddTranslation !== false && settings.addTranslation !== false
+				);
+			}
+
+			if (settings.downloadEmbedLyrics !== false) {
+				const useStaticOnly = (ext === '.mp3' && settings.mp3BothStaticDynamic && settings.embedLyricDynamic !== false);
+				cleanLyrics = generateLyricText(
+					originalLrc,
+					translatedLrc,
+					useStaticOnly ? false : (settings.embedLyricDynamic !== false),
+					settings.embedLyricAddTranslation !== false && settings.addTranslation !== false
+				);
+			}
+		}
 		
 		try {
 			if (fs.existsSync(actualTempAudioPath)) {
@@ -201,7 +463,6 @@ async function main() {
 		}
 
 		// Step C: ffmpeg Merge & Save
-		const settings = getSettings();
 		const sanitizedArtist = artistName.replace(/[\\/:*?"<>|]/g, '_');
 		const sanitizedTitle = songTitle.replace(/[\\/:*?"<>|]/g, '_');
 		const sanitizedAlbum = albumName.replace(/[\\/:*?"<>|]/g, '_');
@@ -269,6 +530,20 @@ async function main() {
 			finished = true;
 			if (code === 0) {
 				log(`Successfully downloaded and metadata merged! Saved to ${finalFilename}`);
+				
+				// Inject SYLT frame if mp3, mp3BothStaticDynamic is true, and embedLyricDynamic is true
+				if (ext === '.mp3' && settings.mp3BothStaticDynamic && settings.embedLyricDynamic !== false && originalLrc) {
+					try {
+						const syncItems = parseSyltLyrics(
+							originalLrc,
+							translatedLrc,
+							settings.embedLyricAddTranslation !== false && settings.addTranslation !== false
+						);
+						writeSyltToMp3(finalOutputPath, syncItems);
+					} catch (syltErr) {
+						log(`Failed to inject SYLT: ${syltErr.message}`, 'WARN');
+					}
+				}
 			} else {
 				log(`ffmpeg failed/unavailable (code ${code}, err: ${err ? err.message : 'none'}). Falling back to copying raw audio...`, 'WARN');
 				try {
