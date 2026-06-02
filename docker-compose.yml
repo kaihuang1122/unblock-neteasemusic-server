@@ -5,6 +5,7 @@ services:
         build: .
         environment:
             NODE_ENV: production
+        restart: unless-stopped
 
         # Change sources here
         # command: ["-o", "bilibili", "kugou", "kuwo", "ytdlp"]
