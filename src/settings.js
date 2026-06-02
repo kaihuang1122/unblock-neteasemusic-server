@@ -7,7 +7,17 @@ const settingsPath = path.join(dataDir, 'settings.json');
 const defaultSettings = {
 	downloadEnabled: true,
 	byAlbum: false,
-	byArtist: false
+	byArtist: false,
+	downloadLyrics: true,
+	downloadEmbedLyrics: true,
+	downloadLrcFile: true,
+	addTranslation: true,
+	embedLyricAddTranslation: true,
+	lrcFileAddTranslation: true,
+	useDynamicLyrics: true,
+	embedLyricDynamic: true,
+	lrcFileDynamic: true,
+	mp3BothStaticDynamic: false
 };
 
 function getSettings() {
