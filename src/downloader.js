@@ -5,6 +5,7 @@ const https = require('https');
 const { spawn } = require('child_process');
 const os = require('os');
 const { getSettings } = require('./settings');
+const { pipeline } = require('stream');
 
 const songId = process.argv[2];
 const fallbackSongName = process.argv[3];
@@ -28,8 +29,7 @@ function log(message, level = 'INFO') {
 	console.log(logLine.trim());
 }
 
-// Download utility with redirect support
-function downloadFile(url, destPath) {
+function downloadOnce(url, destPath) {
 	return new Promise((resolve, reject) => {
 		const parsedUrl = new URL(url);
 		const client = parsedUrl.protocol === 'https:' ? https : http;
@@ -53,28 +53,62 @@ function downloadFile(url, destPath) {
 			headers['Referer'] = 'https://music.migu.cn/';
 		}
 
-		const req = client.get(url, { headers }, (res) => {
+		let finished = false;
+		const req = client.get(url, { headers, timeout: 30000 }, (res) => {
 			if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-				// Handle redirect
 				const redirectUrl = new URL(res.headers.location, url).href;
-				return downloadFile(redirectUrl, destPath).then(resolve).catch(reject);
+				finished = true;
+				return downloadOnce(redirectUrl, destPath).then(resolve).catch(reject);
 			}
-			if (res.statusCode !== 200) {
+			if (res.statusCode !== 200 && res.statusCode !== 206) {
+				finished = true;
 				return reject(new Error(`Failed to download, status: ${res.statusCode}`));
 			}
+
 			const fileStream = fs.createWriteStream(destPath);
-			res.pipe(fileStream);
-			fileStream.on('finish', () => {
-				fileStream.close();
-				resolve(res.headers);
-			});
-			fileStream.on('error', (err) => {
-				fs.unlink(destPath, () => {});
-				reject(err);
+			pipeline(res, fileStream, (err) => {
+				if (finished) return;
+				finished = true;
+				if (err) {
+					fs.unlink(destPath, () => {});
+					reject(err);
+				} else {
+					resolve(res.headers);
+				}
 			});
 		});
-		req.on('error', reject);
+
+		req.on('error', (err) => {
+			if (finished) return;
+			finished = true;
+			reject(err);
+		});
+
+		req.on('timeout', () => {
+			if (finished) return;
+			finished = true;
+			req.destroy();
+			reject(new Error('Request timeout'));
+		});
 	});
+}
+
+// Download utility with redirect, timeout, stream pipelines and auto retries
+async function downloadFile(url, destPath, retries = 3) {
+	let lastError;
+	for (let i = 0; i < retries; i++) {
+		try {
+			if (i > 0) {
+				log(`Retrying download (attempt ${i + 1}/${retries})...`, 'WARN');
+				await new Promise(resolve => setTimeout(resolve, 1000));
+			}
+			return await downloadOnce(url, destPath);
+		} catch (err) {
+			lastError = err;
+			log(`Download attempt ${i + 1} failed: ${err.message}`, 'WARN');
+		}
+	}
+	throw lastError;
 }
 
 // Fetch JSON utility
