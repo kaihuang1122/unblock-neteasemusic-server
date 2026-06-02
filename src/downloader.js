@@ -423,7 +423,7 @@ async function main() {
 	// Try to fetch lyrics
 	if (settings.downloadLyrics !== false) {
 		try {
-			const lyricRes = await fetchJson(`https://music.163.com/api/song/lyric?id=${songId}&lv=1&kv=1&tv=-1`);
+			const lyricRes = await fetchJson(`https://music.163.com/api/song/lyric?id=${songId}&lv=-1&kv=-1&tv=-1`);
 			if (lyricRes) {
 				originalLrc = lyricRes.lrc && lyricRes.lrc.lyric ? lyricRes.lrc.lyric : '';
 				translatedLrc = lyricRes.tlyric && lyricRes.tlyric.lyric ? lyricRes.tlyric.lyric : '';
